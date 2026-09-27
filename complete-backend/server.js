@@ -8,7 +8,8 @@ const port = Number(process.env.PORT) || 3000;
 async function startServer() {
   try {
     await connectDatabase();
-    app.listen(port, () => {
+
+    app.listen(port, '0.0.0.0', () => {
       console.log(`Spotify clone API listening on port ${port}`);
     });
   } catch (error) {
