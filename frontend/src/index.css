@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-base text-ink;
+  }
+
+  body {
+    @apply font-body antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+
+  ::selection {
+    background-color: theme('colors.moss.DEFAULT');
+    color: theme('colors.base.DEFAULT');
+  }
+
+  *:focus-visible {
+    outline: 2px solid theme('colors.moss.DEFAULT');
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Slim, tasteful scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: theme('colors.base.hover');
+    border-radius: 999px;
+    border: 2px solid theme('colors.base.DEFAULT');
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.base.border');
+  }
+
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-moss px-6 py-2.5 text-sm font-semibold text-base transition-colors hover:bg-moss-bright active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-base-border bg-transparent px-6 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-ink disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-ink-dim transition-colors hover:text-ink hover:bg-base-hover;
+  }
+
+  .input-field {
+    @apply w-full rounded-md border border-base-border bg-base-raised px-4 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-moss focus:outline-none;
+  }
+
+  .card-surface {
+    @apply rounded-xl2 border border-base-border bg-base-raised;
+  }
+}
