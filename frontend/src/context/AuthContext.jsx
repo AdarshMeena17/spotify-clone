@@ -5,6 +5,9 @@ import {
   logoutUser,
   registerUser,
   getErrorMessage,
+  refreshAccessToken,
+  setAccessToken,
+  setAuthFailureHandler,
 } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -17,18 +20,40 @@ function normalizeUser(user) {
   return { ...user, id: user.id || user._id };
 }
 
+// Restore a session after a browser refresh: the in-memory token is gone, so
+// get a new one from the refresh cookie, then load the user. Module-level so
+// React StrictMode's double-invoked effect doesn't fire it twice.
+let bootstrapPromise = null;
+function bootstrapSession() {
+  if (!bootstrapPromise) {
+    bootstrapPromise = refreshAccessToken()
+      .then(() => getCurrentUser())
+      .finally(() => {
+        bootstrapPromise = null;
+      });
+  }
+  return bootstrapPromise;
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
+  // When a refresh fails mid-session, api.js clears the token and calls this.
+  // Setting user to null makes the route guards redirect to /login.
+  useEffect(() => {
+    setAuthFailureHandler(() => setUser(null));
+    return () => setAuthFailureHandler(null);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    getCurrentUser()
+    bootstrapSession()
       .then(({ user: me }) => {
         if (!cancelled) setUser(normalizeUser(me));
       })
       .catch(() => {
-        // 401 just means logged out — not an error worth surfacing.
+        // No/expired refresh cookie just means logged out — not an error worth surfacing.
         if (!cancelled) setUser(null);
       })
       .finally(() => {
@@ -41,6 +66,7 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (credentials) => {
     const data = await loginUser(credentials);
+    setAccessToken(data.accessToken); // memory only
     setUser(normalizeUser(data.user));
     return data;
   }, []);
@@ -51,11 +77,12 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await logoutUser();
+      await logoutUser(); // sends the refresh cookie so the server can end the session
     } catch (error) {
       // Even if the network call fails, clear local state so the UI
       // reflects a logged-out session.
     } finally {
+      setAccessToken(null);
       setUser(null);
     }
   }, []);

@@ -13,7 +13,7 @@ import ArtistDashboard from '../pages/ArtistDashboard';
 import UploadMusic from '../pages/UploadMusic';
 import CreateAlbum from '../pages/CreateAlbum';
 import NotFound from '../pages/NotFound';
-
+import VerifyOtp from '../pages/VerifyOtp';
 export function AppRoutes() {
   return (
     <Routes>
@@ -48,6 +48,15 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+         
+      <Route
+        path="/verify-otp"
+        element={
+          <GuestOnlyRoute>
+            <VerifyOtp />
+          </GuestOnlyRoute>
+        }
+      />
 
         <Route
           path="/dashboard"

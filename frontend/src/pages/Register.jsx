@@ -42,15 +42,16 @@ export default function Register() {
     if (!validate()) return;
     setSubmitError('');
     setIsLoading(true);
-    try {
+      try {
+      const email = form.email.trim();
       const data = await register({
         username: form.username.trim(),
-        email: form.email.trim(),
+        email,
         password: form.password,
         role: form.role,
       });
-      notify(data?.message || 'Account created. Please log in.', 'success');
-      navigate('/login');
+      notify(data?.message || 'Account created. Check your email for the verification code.', 'success');
+      navigate('/verify-otp', { state: { email } });
     } catch (err) {
       setSubmitError(getErrorMessage(err, 'Could not create your account.'));
     } finally {
