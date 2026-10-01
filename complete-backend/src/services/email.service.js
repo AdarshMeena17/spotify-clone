@@ -1,58 +1,77 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
+const { OAuth2Client } = require('google-auth-library');
 
-async function sendOtpEmail(email, otp) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
+// Same env vars you already use. No redirect URI is needed for refreshing a token.
+const oAuth2Client = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET
+);
+oAuth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
 
-  if (!apiKey || !from) {
-    const missing = [
-  !apiKey && 'RESEND_API_KEY',
-      !from && 'RESEND_FROM_EMAIL'
-    ].filter(Boolean);
-    throw new Error(`Missing email configuration: ${missing.join(', ')}`);
-  }
+// Custom Nodemailer transport: Nodemailer builds the MIME, Gmail API delivers it over HTTPS.
+const gmailApiTransport = {
+  name: 'gmail-api',
+  version: '1.0.0',
+  send(mail, callback) {
+    mail.message.build(async (err, raw) => {
+      if (err) return callback(err);
+      try {
+        const { token } = await oAuth2Client.getAccessToken(); // cached, auto-refreshed
+        const res = await fetch(
+          'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ raw: raw.toString('base64url') }),
+          }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return callback(
+            new Error(`Gmail API ${res.status}: ${data.error?.message || res.statusText}`)
+          );
+        }
+        const envelope = mail.message.getEnvelope();
+        callback(null, {
+          envelope,
+          messageId: mail.message.messageId(),
+          accepted: envelope.to,
+          rejected: [],
+          response: data.id,
+        });
+      } catch (e) {
+        callback(e);
+      }
+    });
+  },
+};
 
-  const resend = new Resend(apiKey);
-  console.log('[email] Calling Resend', { from, to: email });
+const transporter = nodemailer.createTransport(gmailApiTransport);
 
-  let result;
-  try {
-    result = await resend.emails.send({
-      from,
-      to: [email],
-      subject: 'Verify your Wavelength account',
-      html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto;">
-        <h2>Welcome to Wavelength 🎵</h2>
-        <p>Use the following OTP to verify your email:</p>
+// ...sendOtpEmail and module.exports unchanged
 
-        <div style="
-          font-size: 32px;
-          font-weight: bold;
-          letter-spacing: 8px;
-          margin: 20px 0;
-        ">
-          ${otp}
-        </div>
-
-        <p>This OTP will expire in 10 minutes.</p>
-        <p>If you didn't create a Wavelength account, you can ignore this email.</p>
+async function sendOtpEmail(to, otp) {
+  const info = await transporter.sendMail({
+    from: `"Wavelength" <${process.env.GOOGLE_USER}>`,
+    to,
+    subject: 'Verify your Wavelength account',
+    text: `Your Wavelength verification code is ${otp}. It expires in 10 minutes.`,
+    html: `
+      <div style="font-family: Arial, sans-serif;">
+        <h2>Wavelength</h2>
+        <p>Your verification code is:</p>
+        <h1>${otp}</h1>
+        <p>This OTP expires in 10 minutes.</p>
       </div>
     `
-    });
-  } catch (error) {
-    console.error('[email] Resend request failed', { to: email, error: error.message });
-    throw error;
-  }
+  });
 
-  const { data, error } = result;
-  if (error) {
-    console.error('[email] Resend returned an error', error);
-    throw new Error(error.message);
-  }
+  console.log('OTP email sent:', info.messageId);
 
-  console.log('[email] Resend accepted OTP email', { to: email, id: data?.id });
-  return data;
+  return info;
 }
 
 module.exports = { sendOtpEmail };

@@ -59,11 +59,14 @@ async function register(req, res) {
     } catch (error) {
       if (isNewUser) {
         await User.deleteOne({ _id: user._id, isVerified: false });
-      } else {
-        user.otpHash = previousOtp.otpHash;
-        user.otpExpiresAt = previousOtp.otpExpiresAt;
-        await user.save();
-      }
+     } else {
+  user.username = username;
+  user.password = await bcrypt.hash(password, 10);
+  user.role = safeRole;
+  user.otpHash = otpHash;
+  user.otpExpiresAt = otpExpiresAt;
+  await user.save();
+}
 
       return res.status(500).json({ message: 'Unable to send verification email' });
     }
@@ -204,9 +207,13 @@ res.cookie('refreshToken', refreshToken, {
         role: user.role
       }
     });
-  } catch (error) {
-    return res.status(500).json({ message: 'Login failed', error: error.message });
-  }
+ } catch (error) {
+  console.error('LOGIN ERROR:', error);
+  return res.status(500).json({
+    message: 'Login failed',
+    error: error.message
+  });
+}
 }
 
 async function refreshAccessToken(req, res) {
